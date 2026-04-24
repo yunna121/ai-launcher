@@ -2,108 +2,79 @@
 <html lang="en">
 <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Inteplast AI Assistant Launcher</title>
+    <title>Inteplast AI Assistant</title>
     <style>
-        body {
-            font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            height: 100vh;
-            margin: 0;
-            background-color: #f3f2f1;
-            color: #323130;
-        }
-        .container {
-            text-align: center;
-            padding: 40px;
-            background: white;
-            border-radius: 12px;
-            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
-            max-width: 480px;
-            width: 90%;
-        }
-        .icon { font-size: 48px; margin-bottom: 20px; }
-        h1 { font-size: 24px; margin: 0 0 10px 0; color: #0078d4; }
-        p { color: #605e5c; font-size: 15px; line-height: 1.6; margin-bottom: 25px; }
-        .btn {
-            background-color: #0078d4;
-            color: white !important;
-            padding: 14px 28px;
-            text-decoration: none;
-            border-radius: 6px;
-            display: inline-block;
-            font-weight: 600;
-            font-size: 16px;
-            border: none;
-            cursor: pointer;
-            transition: background 0.2s, transform 0.1s;
-            width: 100%;
-            box-sizing: border-box;
-            margin-bottom: 12px;
-        }
-        .btn:hover { background-color: #005a9e; }
-        .btn:active { transform: translateY(1px); }
-        .btn-outline {
-            background-color: transparent;
-            color: #0078d4 !important;
-            border: 1px solid #0078d4;
-        }
-        .btn-outline:hover { background-color: #f3f2f1; }
-        .footer {
-            margin-top: 25px;
-            padding-top: 20px;
-            border-top: 1px solid #edebe9;
-            font-size: 13px;
-            color: #a19f9d;
-        }
+        body { font-family: "Segoe UI", system-ui, -apple-system, sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; background-color: #f3f2f1; color: #323130; }
+        .container { text-align: center; padding: 40px; background: white; border-radius: 12px; box-shadow: 0 10px 40px rgba(0,0,0,0.1); max-width: 480px; width: 90%; }
+        .loader { border: 4px solid #f3f3f3; border-top: 4px solid #0078d4; border-radius: 50%; width: 35px; height: 35px; animation: spin 1s linear infinite; margin: 0 auto 20px; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        h2 { margin-top: 0; font-size: 24px; }
+        p { color: #605e5c; font-size: 15px; line-height: 1.6; }
+        .btn { background-color: #0078d4; color: white !important; padding: 15px 35px; text-decoration: none; border-radius: 6px; display: inline-block; font-weight: 700; font-size: 18px; margin-top: 20px; transition: all 0.2s; box-shadow: 0 4px 12px rgba(0,120,212,0.3); }
+        .hidden { display: none; }
+        .alert-title { color: #d83b01; font-weight: bold; font-size: 24px; margin-bottom: 10px; }
     </style>
 </head>
 <body>
     <div class="container">
-        <div class="icon">🤖</div>
-        <h1>AI Assistant</h1>
-        <p>Attempting to launch the application. <br>If you see a prompt, please click <b>"Open"</b>.</p>
+        <!-- Status A: Launching (Default) -->
+        <div id="status-launching">
+            <div class="loader"></div>
+            <h2>Launching AI Assistant...</h2>
+            <p>Please click <b>"Open"</b> in the browser prompt above.</p>
+        </div>
 
-        <!-- Primary Action: Open the app -->
-        <button onclick="launchApp()" class="btn">Launch Application</button>
-
-        <!-- Secondary Action: Download if not installed -->
-        <a href="https://wpjk.sharepoint.com/sites/IPGSafetyHub/_layouts/15/guestaccess.aspx?e=475sdn&download=1&share=IQAaUIAo5WJNRKj7blcpGRFJATf_-apmqBkwetZqwzFUc8I" class="btn btn-outline">Download Installer (EXE)</a>
-
-        <div class="footer">
-            <p>Need help? Contact the IT Safety Support team.</p>
+        <!-- Status B: App Not Detected (Shows download) -->
+        <div id="status-download" class="hidden">
+            <div class="alert-title">Installation Required</div>
+            <p>We couldn't detect the AI Assistant on your computer.<br>Please download and install the application to continue.</p>
+            <a href="https://wpjk.sharepoint.com/sites/IPGSafetyHub/_layouts/15/guestaccess.aspx?e=eWRg4F&download=1&share=IQAx_mrN7WIoSolbkm874rmyAbxJRH9byD_GOVFk8nisP-k" class="btn">Download Installer</a>
         </div>
     </div>
 
+    <!-- Hidden iframe for silent protocol probing -->
+    <iframe id="launch-probe" style="display:none;"></iframe>
+
     <script>
-        var protocol = 'inteplast-ai://open';
-        var hasBlurred = false;
+        (function () {
+            var protocol = 'inteplast-ai://open';
+            var hasBlurred = false;
+            var isFailed = false;
 
-        // Detect if the "Open App" prompt appeared
-        window.onblur = function() {
-            hasBlurred = true;
-        };
+            // Monitor if the window loses focus (triggered when browser prompt appears)
+            window.onblur = function() {
+                hasBlurred = true;
+            };
 
-        // Detect when user comes back after clicking "Open"
-        window.onfocus = function() {
-            if (hasBlurred) {
-                // If they successfully launched, wait a bit and go back to SharePoint
-                setTimeout(function() {
-                    window.location.href = "https://wpjk.sharepoint.com/sites/IPGSafetyHub/";
-                }, 500);
+            // When user returns to the browser from the prompt
+            window.onfocus = function() {
+                // Only redirect if a prompt actually appeared and it's not a failure case
+                if (hasBlurred && !isFailed) {
+                    setTimeout(function() {
+                        window.location.href = "https://wpjk.sharepoint.com/sites/IPGSafetyHub/";
+                    }, 500);
+                }
+            };
+
+            function attemptLaunch() {
+                // Use iframe for silent probing (prevents annoying error dialogs if app is missing)
+                try {
+                    document.getElementById('launch-probe').src = protocol;
+                } catch (e) {}
+
+                // Wait 2.5 seconds to check if any prompt appeared
+                setTimeout(function () {
+                    if (!hasBlurred) {
+                        // 2.5 seconds with no prompt = assume app is not installed
+                        isFailed = true;
+                        document.getElementById('status-launching').classList.add('hidden');
+                        document.getElementById('status-download').classList.remove('hidden');
+                    }
+                }, 2500);
             }
-        };
 
-        function launchApp() {
-            window.location.href = protocol;
-        }
-
-        // Auto-launch once when page loads
-        window.onload = function() {
-            setTimeout(launchApp, 800);
-        };
+            window.onload = attemptLaunch;
+        })();
     </script>
 </body>
 </html>
